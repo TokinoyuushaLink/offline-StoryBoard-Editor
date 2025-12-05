@@ -1,0 +1,1318 @@
+
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简易分镜编写器</title>
+    <style>
+        /* --- 黑暗模式全局样式 --- */
+        html, body {
+            height: 100%; 
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #1e1e1e;
+            color: #cccccc;
+            overflow: hidden; 
+        }
+
+        /* *** 标题栏重塑 *** */
+        #global-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px 15px;
+            background-color: #252526;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+            position: relative;
+            height: 50px;
+        }
+
+        /* 标题和上传按钮的容器 */
+        #title-and-upload {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        #global-header h1 {
+            margin: 0;
+            font-size: 1.2em;
+            font-weight: 600;
+            padding: 5px 0;
+            cursor: pointer;
+            transition: color 0.2s;
+            color: #00ccff;
+        }
+        
+        #global-header h1:hover {
+            color: white;
+        }
+
+        /* 统一的单色图标按钮样式 */
+        .icon-btn {
+            background: none;
+            border: none;
+            color: #cccccc;
+            font-size: 1.5em;
+            cursor: pointer;
+            padding: 5px;
+            opacity: 0.8;
+            transition: opacity 0.2s, color 0.2s;
+        }
+        .icon-btn:hover:not(:disabled) {
+            opacity: 1;
+            color: #00ff7f;
+        }
+        .icon-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.3;
+            color: #444;
+        }
+        
+        /* 上传音频文件名显示 - 可点击重新上传 */
+        #audio-file-name-display {
+            font-size: 0.9em;
+            color: #00ff7f;
+            background-color: #333337;
+            padding: 5px 10px;
+            border-radius: 4px;
+            display: none;
+            cursor: pointer; /* 使文件名看起来可交互 */
+            border: 1px solid transparent;
+            transition: border-color 0.2s;
+        }
+        #audio-file-name-display:hover {
+            border-color: #00ff7f;
+        }
+
+        /* --- 中间时间指示器和控制器（居中实现） --- */
+        #center-controls-wrapper {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            height: 100%;
+        }
+
+        /* 分镜计数器 */
+        .counter-box {
+            background-color: #333337;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #999;
+            border: 1px solid #444; 
+            white-space: nowrap;
+        }
+        
+        .counter-box strong {
+            color: #fff;
+            margin-left: 5px;
+        }
+
+        /* 时间指示器容器 */
+        #time-display-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #1e1e1e;
+            border-radius: 6px;
+            padding: 5px 10px;
+            border: 1px solid #444; 
+        }
+        
+        #time-display-bar {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 25px;
+            font-family: monospace;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #00ff7f; 
+            user-select: none;
+        }
+        
+        #current-time-display {
+            text-align: right;
+            padding-right: 5px;
+        }
+        
+        #duration-display {
+            text-align: left;
+            color: #aaa; 
+            font-size: 0.8em;
+            padding-left: 5px;
+        }
+        
+        #time-separator {
+            color: #555;
+            margin: 0 5px;
+        }
+
+        .unloaded-state {
+            color: #888 !important;
+            font-size: 1em !important;
+            font-weight: normal !important;
+            height: 25px;
+            line-height: 25px;
+        }
+
+        /* 底部进度条 */
+        #playback-progress-bar-wrapper {
+            width: 100%;
+            height: 3px;
+            background-color: #555;
+            border-radius: 2px;
+            margin-top: 3px;
+            overflow: hidden;
+        }
+        
+        #playback-progress-bar {
+            height: 100%;
+            width: 0%;
+            background-color: #00ff7f;
+        }
+        
+        /* --- 导出按钮和更多按钮区域 --- */
+        #right-corner-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+        }
+
+        .export-btn {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        
+        .export-btn:hover {
+            background-color: #218838;
+        }
+
+        /* 更多按钮 (...) 样式 */
+        #more-options-btn {
+            padding: 8px 10px;
+            background-color: #333337;
+            color: #ccc;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.1em;
+            line-height: 1;
+            transition: background-color 0.2s;
+        }
+        #more-options-btn:hover {
+            background-color: #444448;
+        }
+        
+        /* 更多选项下拉菜单 */
+        #more-options-menu {
+            position: absolute;
+            top: 40px;
+            right: 0;
+            background-color: #2d2d30;
+            border: 1px solid #444;
+            border-radius: 4px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            padding: 5px 0;
+            min-width: 150px;
+            display: none;
+        }
+
+        #more-options-menu button {
+            display: block;
+            width: 100%;
+            padding: 8px 15px;
+            text-align: left;
+            background: none;
+            border: none;
+            color: #cccccc;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.1s;
+        }
+
+        #more-options-menu button:hover {
+            background-color: #3c3c3c;
+        }
+
+        #clear-all-scenes-btn {
+            color: #e76c78;
+        }
+        
+        /* --- 页面主体和表格样式 --- */
+        #app-container {
+            display: flex;
+            height: calc(100vh - 60px); 
+            padding: 10px;
+            gap: 10px;
+            box-sizing: border-box;
+            
+            /* 默认状态：宽度 100% 紧贴页面两端 */
+            width: 100%;
+        }
+        
+        /* 媒体查询：当视口宽度大于或等于 1250px 时 */
+        @media (min-width: 1250px) {
+            #app-container {
+                /* 宽度保持 1250px */
+                width: 1250px;
+                /* 居中 */
+                margin: 0 auto;
+            }
+        }
+        /* --- 媒体查询结束 --- */
+
+        #storyboard-container { 
+            flex-grow: 1; 
+            display: flex; 
+            flex-direction: column; 
+            background-color: #2d2d30;
+            border-radius: 8px; 
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); 
+            overflow: hidden; 
+        }
+        #controls-header { 
+            padding: 10px 15px; 
+            border-bottom: 1px solid #3c3c3c; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            background-color: #2d2d30;
+        }
+        #controls-header span { font-size: 0.9em; color: #999; }
+        #table-scroll-wrapper { flex-grow: 1; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; color: #cccccc; }
+        
+        /* 表头样式 - 保持不变以确保高度不变 */
+        th { 
+            background-color: #333337; 
+            position: sticky; 
+            top: 0; 
+            z-index: 2; 
+            color: #fff;
+            padding: 10px 0; /* 控制表头高度的关键 */
+            border-bottom: 1px solid #444;
+            vertical-align: middle;
+        }
+        
+        tr { 
+            border-bottom: 5px solid #1e1e1e;
+            transition: background-color 0.2s; 
+            cursor: grab; 
+        }
+        tr.dragging { opacity: 0.5; transform: scale(1.01); background-color: #4a412a !important; }
+        tr.drag-over { border-top: 2px solid #007bff; }
+        tr:hover { background-color: #38383a; }
+        .highlight-row { background-color: #4a412a !important; }
+        td { border: none; padding: 0; vertical-align: top; }
+        
+        /* --- 核心布局修正 --- */
+        
+        /* 1. 更新列宽度 (TH 和 TD 共享此宽度) */
+        .handle-cell { 
+            width: 30px; 
+            text-align: center; 
+            vertical-align: middle; 
+            padding: 5px 0; 
+            background-color: #3c3c3c; 
+            cursor: grab; 
+        }
+
+        .image-cell { 
+            width: 300px; /* 固定宽度 */
+            padding: 10px; 
+        }
+
+        .text-cell { 
+            width: calc(100% - 30px - 300px); 
+            padding: 10px; 
+        }
+        
+        /* 2. TD 专属的高度适配 FIX: 启用 Flexbox */
+        td.image-cell {
+            display: flex; /* 使 TD 成为 Flex 容器 */
+            flex-direction: column; /* 垂直排列 */
+            height: 100%; /* 确保 TD 继承 TR 的高度 */
+            align-items: center; 
+            justify-content: center;
+        }
+
+        /* 3. 控制行最小高度和文本区域的垂直对齐 */
+        .text-cell-wrapper {
+            min-height: 160px; /* 控制行内容的最小高度 (~180px 总行高) */
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 4. 图片上传框弹性填充高度 */
+        .image-upload-box { 
+            position: relative; 
+            width: 100%; 
+            flex-grow: 1; /* 关键：允许它填充 TD 的剩余高度 */
+            min-height: 172px; /* 确保在无文本时有最低高度 */
+            
+            /* 其他样式保持不变 */
+            padding-top: 0; 
+            background-color: #333337;
+            border: 2px dashed #666; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            color: #666; 
+            font-size: 2em; 
+            overflow: hidden; 
+            transition: border-color 0.2s; 
+        }
+
+        .image-upload-box input[type="file"] { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; 
+        }
+        
+        .image-preview-container { 
+            position: absolute; 
+            top: 0; left: 0; 
+            width: 100%; height: 100%; 
+            display: none; 
+            overflow: hidden;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+        }
+
+        .uploaded-img { 
+            width: auto;
+            height: 100%; /* 高度充满 image-upload-box */
+            object-fit: contain;
+            display: block; 
+        }
+        
+        /* --- 其他样式保持不变 --- */
+        .text-area {
+            flex-grow: 1;
+            min-height: 80px; 
+            width: 100%;
+            border: 1px solid #555;
+            background-color: #3c3c3c;
+            color: #cccccc;
+            padding: 8px;
+            box-sizing: border-box;
+            resize: none; 
+            font-size: 14px;
+            line-height: 1.4;
+            border-radius: 4px;
+            margin-top: 5px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .text-area::placeholder { color: #999; }
+        
+        .delete-btn { background: none; border: none; color: #e76c78; font-size: 1.1em; cursor: pointer; padding: 3px; opacity: 0.7; transition: opacity 0.2s; display: block; margin: 0 auto 5px auto; }
+        .delete-btn:hover { opacity: 1; }
+        
+        .image-upload-box:hover, .image-upload-box.drag-target { border-color: #0099ff; color: #0099ff; }
+        
+        #timeline-panel { 
+            width: 60px; display: flex; flex-direction: column; 
+            background-color: #2d2d30;
+            border-radius: 8px; padding: 15px 5px; 
+        }
+        #timeline-wrapper { flex-grow: 1; position: relative; }
+        #timeline-progress { width: 4px; height: 100%; position: absolute; left: 50%; transform: translateX(-50%); top: 0; background-color: #666; }
+        .timeline-marker { position: absolute; left: -8px; width: 20px; height: 2px; background-color: #ffc107; border-radius: 2px; cursor: default; z-index: 10; }
+        #playback-cursor { position: absolute; left: -12px; width: 30px; height: 5px; background-color: #dc3545; z-index: 100; transform: translateY(-50%); border-radius: 4px; cursor: grab; }
+        
+    </style>
+</head>
+<body>
+
+    <div id="global-header">
+        <div id="title-and-upload">
+            <h1 onclick="showShortcutHint()">🎬 分镜编写器</h1>
+            
+            <input type="file" id="audioFile" accept="audio/*" onchange="loadAudioDuration(this)" style="display:none;">
+            
+            <button class="icon-btn" id="uploadAudioBtn" onclick="document.getElementById('audioFile').click()" title="上传音频">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+              <polyline points="16 6 12 2 8 6" />
+              <line x1="12" y1="2" x2="12" y2="15" />
+            </svg>
+        </button>
+            <span id="audio-file-name-display" onclick="reuploadAudio()"></span>
+        </div>
+
+        <div id="center-controls-wrapper">
+            <div class="counter-box">
+                分镜数: <strong id="scene-counter">0</strong>
+            </div>
+            
+            <div id="time-display-container">
+                <div id="time-display-bar">
+                    <span id="current-time-display" class="unloaded-state">上传文件开始编辑</span>
+                    <span id="time-separator" style="display:none;">|</span>
+                    <span id="duration-display" style="display:none;"></span>
+                </div>
+                <div id="playback-progress-bar-wrapper">
+                     <div id="playback-progress-bar"></div>
+                </div>
+            </div>
+            
+            <button class="icon-btn" id="playPauseBtn" onclick="togglePlayback()" disabled>◼</button>
+        </div>
+        
+        <div id="right-corner-controls">
+            <button id="more-options-btn" onclick="toggleMoreMenu()">···</button>
+
+            <div id="more-options-menu">
+                <button id="import-csv-btn" onclick="document.getElementById('csvFileInput').click()">📥 导入 CSV</button>
+                <button id="clear-all-scenes-btn" onclick="clearAllScenes()">⚠️ 清除全部分镜</button>
+            </div>
+            
+            <button class="export-btn" onclick="exportToCSV()">💾 导出 CSV</button>
+        </div>
+        
+        <input type="file" id="csvFileInput" accept=".csv" style="display:none;" onchange="loadCSV(this.files[0])">
+        <audio id="audioPlayer" style="display:none;"></audio>
+    </div>
+
+    <div id="app-container">
+        
+        <div id="storyboard-container">
+            <div id="controls-header">
+                <span>拖动以行进行排序</span>
+                <button class="add-row-btn" onclick="addRow(null, null, true)">➕ 添加无时间分镜</button>
+            </div>
+            
+            <div id="table-scroll-wrapper">
+                <table id="storyboard-table">
+                    <thead>
+                        <tr>
+                            <th class="handle-cell">#</th>
+                            <th class="image-cell">图像</th>
+                            <th class="text-cell">描述/脚本</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="timeline-panel">
+            <div id="timeline-wrapper">
+                <div id="timeline-progress">
+                    <div id="playback-cursor" style="top: 0%;"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- JavaScript 逻辑部分 ---
+        const tableBody = document.querySelector('#storyboard-table tbody');
+        const timelineProgress = document.getElementById('timeline-progress');
+        const playbackCursor = document.getElementById('playback-cursor');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        
+        const currentTimeDisplay = document.getElementById('current-time-display');
+        const durationDisplay = document.getElementById('duration-display');
+        const timeSeparator = document.getElementById('time-separator');
+        const progressBar = document.getElementById('playback-progress-bar');
+        const sceneCounter = document.getElementById('scene-counter');
+        
+        const uploadAudioBtn = document.getElementById('uploadAudioBtn');
+        const audioFileNameDisplay = document.getElementById('audio-file-name-display');
+        const moreOptionsMenu = document.getElementById('more-options-menu');
+        
+        let markers = []; 
+        let nextRowId = 1;
+        let totalDuration = 0; 
+        let isDragging = false;
+        let timelineRect;
+        let draggedRow = null;
+        let animationFrameId = null;
+        
+        function formatTime(seconds) {
+            const totalCs = Math.round(seconds * 100); 
+            const cs = (totalCs % 100).toString().padStart(2, '0');
+            const totalS = Math.floor(totalCs / 100);
+            const min = Math.floor(totalS / 60);
+            const sec = (totalS % 60).toString().padStart(2, '0');
+            return `${min}:${sec}.${cs}`;
+        }
+        
+        window.showShortcutHint = function() {
+            alert(
+                "🎹 快捷键提示\n\n" +
+                "空格键: 播放/暂停\n" +
+                "M 键: 在当前音频时间点添加新的分镜标记\n" +
+                "1 键: 将音频播放头归零\n" +
+                "Delete 键: 删除当前高亮分镜\n" +
+                "/ 键: 跳转到下一个时间标记\n" +
+                "* 键: 跳转到上一个时间标记\n" +
+                "Esc 键: 退出文字编辑\n\n" +
+                "*注：在编写文字的时候，「/」键与「*」键不可用"
+            );
+        }
+        
+        window.toggleMoreMenu = function() {
+            moreOptionsMenu.style.display = moreOptionsMenu.style.display === 'block' ? 'none' : 'block';
+        }
+        
+        document.addEventListener('click', function(event) {
+            const moreBtn = document.getElementById('more-options-btn');
+            if (moreOptionsMenu.style.display === 'block' && 
+                event.target !== moreOptionsMenu && 
+                event.target !== moreBtn &&
+                !moreOptionsMenu.contains(event.target)) {
+                
+                moreOptionsMenu.style.display = 'none';
+            }
+        });
+
+        window.reuploadAudio = function() {
+            document.getElementById('audioFile').click();
+        }
+
+        /**
+         * 检查并删除所有超出新音频时长的分镜标记和表格行。
+         * @param {number} newDuration 新音频的时长
+         */
+        function pruneMarkers(newDuration) {
+            const markersToDelete = markers.filter(m => m.time > newDuration);
+            
+            if (markersToDelete.length > 0) {
+                console.warn(`✂️ 音频变短，裁剪了 ${markersToDelete.length} 个超出新时长的分镜标记。`);
+                
+                // 为了避免修改 markers 数组时出错，遍历副本并调用 deleteRow
+                markersToDelete.forEach(marker => {
+                    // deleteRow 会从 markers 中移除标记，从 DOM 中移除行和标记，并更新计数。
+                    deleteRow(marker.rowId); 
+                });
+            }
+        }
+
+        window.clearAllScenes = function() {
+            
+            moreOptionsMenu.style.display = 'none';
+            audioPlayer.pause();
+            stopPlaybackLoop();
+            
+            markers = []; 
+            tableBody.innerHTML = '';
+            timelineProgress.querySelectorAll('.timeline-marker').forEach(m => m.remove());
+            nextRowId = 1;
+            sceneCounter.textContent = '0';
+            
+            if (totalDuration > 0) {
+                 audioPlayer.currentTime = 0;
+                 updatePlaybackUI();
+            }
+            
+            console.log('✅ 所有分镜已清除，音频信息保留。');
+        }
+
+        window.exportToCSV = function() {
+            const rows = tableBody.querySelectorAll('tr');
+            const BOM = "\uFEFF"; 
+            let csvContent = BOM;
+            csvContent += "序号,时间点,描述/脚本,图像文件名\r\n";
+            rows.forEach((row, index) => {
+                const rowId = row.id.replace('row-', '');
+                const timeInfoElement = row.querySelector('.marker-info');
+                let rawTime = timeInfoElement ? timeInfoElement.textContent.match(/[\d\.]+/)?.[0] : '';
+                let time = rawTime ? parseFloat(rawTime).toFixed(2) : ''; 
+                
+                const descriptionElement = row.querySelector('.text-area');
+                let description = descriptionElement ? descriptionElement.value : '';
+                
+                // 1. 替换所有双引号为双双引号 (Excel/CSV 标准转义)
+                // 2. 替换所有换行符为单个空格
+                description = description.replace(/"/g, '""').replace(/\r?\n|\r/g, ' ').trim(); 
+                // 3. 确保字段被双引号包裹
+                let quotedDescription = `"${description}"`; 
+
+                const imageFileElement = row.querySelector(`#image-file-name-${rowId}`);
+                let imageFileName = imageFileElement ? imageFileElement.textContent : '';
+                
+                // 确保图像文件名也被双引号包裹，以防文件名中含有逗号
+                let quotedImageFileName = `"${imageFileName.replace(/"/g, '""')}"`;
+
+                csvContent += `${index + 1},${time},${quotedDescription},${quotedImageFileName}\r\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute("download", `分镜脚本_${new Date().toISOString().slice(0, 10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        window.loadCSV = function(file) {
+            if (!file) return;
+
+            // 清除现有的分镜和标记，但保留音频
+            clearAllScenes();
+            nextRowId = 1; // 确保从1开始计数新导入的行
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const csvText = e.target.result;
+                try {
+                    const rows = parseCSV(csvText); // 解析 CSV 文本
+                    if (rows.length > 1) { // 至少要有一行数据 (表头 + 1行)
+                        // 跳过表头 (假设第一行是表头)
+                        for (let i = 1; i < rows.length; i++) {
+                            const rowData = rows[i];
+                            
+                            // CSV 字段对应：序号(0),时间点(1),描述/脚本(2),图像文件名(3)
+                            const timeString = rowData[1] ? rowData[1].trim() : '';
+                            const description = rowData[2] ? rowData[2].trim() : '';
+                            
+                            let time = null;
+                            let percent = null;
+                            
+                            if (timeString && totalDuration > 0) {
+                                // 只有音频加载完成后，才能导入带时间的分镜
+                                time = parseFloat(timeString);
+                                if (!isNaN(time) && time >= 0 && time <= totalDuration) {
+                                    percent = time / totalDuration;
+                                } else {
+                                    time = null; // 时间无效或超出时长，按无时间标记处理
+                                }
+                            }
+
+                            // 创建新行。图像文件名 (rowData[3]) 无法直接加载，只保留字段
+                            addRow(time, percent, time === null); 
+                            
+                            // 填充描述/脚本
+                            const newRow = document.getElementById(`row-${nextRowId - 1}`);
+                            if (newRow) {
+                                const textArea = newRow.querySelector('.text-area');
+                                if (textArea) {
+                                    textArea.value = description;
+                                }
+                                
+                                // 预留图像文件名信息（无法自动加载图片，但保留信息供导出时使用）
+                                const imageFileNameSpan = newRow.querySelector(`#image-file-name-${nextRowId - 1}`);
+                                if (imageFileNameSpan && rowData[3]) {
+                                    imageFileNameSpan.textContent = rowData[3].trim();
+                                }
+                            }
+                        }
+                        console.log(`✅ 成功导入 ${rows.length - 1} 个分镜。`);
+                    } else {
+                        alert('导入失败：CSV 文件内容为空或格式不正确。');
+                    }
+                } catch (error) {
+                    console.error('CSV 解析错误:', error);
+                    alert('导入失败：CSV 文件解析出错。请检查文件格式是否正确。');
+                }
+            };
+            // 使用 'utf-8' 编码，以正确处理 BOM 和中文
+            reader.readAsText(file, 'utf-8'); 
+            
+            // 隐藏菜单
+            toggleMoreMenu();
+        };
+
+        /**
+         * 简单的 CSV 解析器，支持双引号和 BOM。
+         * @param {string} text CSV 原始文本。
+         * @returns {Array<Array<string>>} 解析后的行和列数组。
+         */
+        function parseCSV(text) {
+            // 移除 BOM (Byte Order Mark)
+            if (text.charCodeAt(0) === 0xFEFF) {
+                text = text.substr(1);
+            }
+            
+            const lines = text.split(/\r\n|\n|\r/);
+            const result = [];
+            
+            for (const line of lines) {
+                if (line.trim() === '') continue;
+
+                const values = [];
+                let currentValue = '';
+                let inQuotes = false;
+                
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+
+                    if (char === '"') {
+                        if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+                            // Escaped quote: "" -> "
+                            currentValue += '"';
+                            i++; 
+                        } else {
+                            // Toggle quote state
+                            inQuotes = !inQuotes;
+                        }
+                    } else if (char === ',' && !inQuotes) {
+                        // End of a field
+                        values.push(currentValue);
+                        currentValue = '';
+                    } else {
+                        currentValue += char;
+                    }
+                }
+                // Push the last field
+                values.push(currentValue); 
+
+                // 清理并处理值 (移除字段首尾可能存在的多余双引号和空白)
+                const cleanedValues = values.map(val => val.trim().replace(/^"|"$/g, ''));
+                result.push(cleanedValues);
+            }
+            
+            return result;
+        }
+
+
+        function updatePlaybackUI() {
+            if (totalDuration > 0) {
+                const currentTime = audioPlayer.currentTime;
+                const percent = currentTime / totalDuration;
+                
+                currentTimeDisplay.textContent = formatTime(currentTime);
+                progressBar.style.width = `${percent * 100}%`;
+                updateCursorPosition(percent);
+                highlightCurrentRow(currentTime);
+            }
+            
+            if (!audioPlayer.paused && audioPlayer.currentTime < totalDuration) {
+                animationFrameId = requestAnimationFrame(updatePlaybackUI);
+            } else {
+                 animationFrameId = null;
+            }
+        }
+        
+        function startPlaybackLoop() {
+            if (!animationFrameId && !audioPlayer.paused && totalDuration > 0) {
+                animationFrameId = requestAnimationFrame(updatePlaybackUI);
+            }
+        }
+
+        function stopPlaybackLoop() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+        }
+
+        window.loadAudioDuration = function(input) {
+            if (input.files.length === 0) return;
+            const file = input.files[0];
+            
+            const isReUpload = totalDuration > 0; // 检查是否为重新上传
+            const oldDuration = totalDuration;
+            
+            if (!isReUpload) {
+                // 首次加载，需要清除默认状态
+                resetEditor(); 
+            } else {
+                // 重新上传时，停止播放
+                audioPlayer.pause();
+                stopPlaybackLoop();
+            }
+
+            const fileNameWithoutExtension = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+            audioFileNameDisplay.textContent = fileNameWithoutExtension;
+            audioFileNameDisplay.style.display = 'block';
+            uploadAudioBtn.style.display = 'none';
+
+            const fileURL = URL.createObjectURL(file);
+            audioPlayer.src = fileURL;
+
+            audioPlayer.onloadedmetadata = function() {
+                if (audioPlayer.duration && isFinite(audioPlayer.duration)) {
+                    totalDuration = audioPlayer.duration; // 更新总时长
+                    
+                    // 裁剪标记逻辑：如果音频变短
+                    if (isReUpload && totalDuration < oldDuration) {
+                        pruneMarkers(totalDuration); 
+                    }
+                    
+                    // 确保播放头在新时长范围内
+                    if (audioPlayer.currentTime > totalDuration) {
+                        audioPlayer.currentTime = totalDuration;
+                    }
+
+                    currentTimeDisplay.classList.remove('unloaded-state');
+                    currentTimeDisplay.textContent = formatTime(audioPlayer.currentTime);
+                    durationDisplay.textContent = formatTime(totalDuration);
+                    durationDisplay.style.display = 'block';
+                    timeSeparator.style.display = 'block';
+                    progressBar.style.width = `${audioPlayer.currentTime / totalDuration * 100}%`;
+
+                    playPauseBtn.disabled = false;
+                    updateCursorPosition(audioPlayer.currentTime / totalDuration);
+
+                    // 需要重新计算并绘制所有标记的位置，因为总时长变了
+                    markers.forEach(m => {
+                        m.percent = m.time / totalDuration;
+                        const markerDiv = timelineProgress.querySelector(`.timeline-marker[data-row-id="${m.rowId}"]`);
+                        if(markerDiv) {
+                            markerDiv.style.top = `${m.percent * 100}%`;
+                        }
+                    });
+                    
+                } else {
+                    currentTimeDisplay.textContent = '❌ 无法读取音频时长。';
+                    resetEditorState(true);
+                }
+            };
+            audioPlayer.onerror = function() {
+                currentTimeDisplay.textContent = '❌ 音频文件加载失败。';
+                resetEditorState(true); 
+            }
+            
+            audioPlayer.ontimeupdate = null; 
+        }
+        
+        function resetEditorState(disableTimeline = false) {
+            stopPlaybackLoop(); 
+            
+            playPauseBtn.textContent = '▶';
+            playPauseBtn.disabled = true;
+            progressBar.style.width = '0%';
+            
+            if (disableTimeline) {
+                totalDuration = 0;
+                markers = []; 
+                tableBody.innerHTML = '';
+                timelineProgress.querySelectorAll('.timeline-marker').forEach(m => m.remove());
+                nextRowId = 1;
+                sceneCounter.textContent = '0';
+                
+                audioFileNameDisplay.style.display = 'none';
+                uploadAudioBtn.style.display = 'block';
+                
+                currentTimeDisplay.textContent = '上传文件开始编辑';
+                currentTimeDisplay.classList.add('unloaded-state');
+                durationDisplay.style.display = 'none';
+                timeSeparator.style.display = 'none';
+            }
+        }
+        
+        function resetEditor(disableTimeline = false) {
+            resetEditorState(disableTimeline);
+        }
+
+
+        function togglePlayback() {
+            if (audioPlayer.paused || audioPlayer.ended) {
+                audioPlayer.play();
+                startPlaybackLoop();
+            } else {
+                audioPlayer.pause();
+                stopPlaybackLoop();
+            }
+        }
+
+        function seekToStart() {
+            if (totalDuration > 0) {
+                audioPlayer.currentTime = 0;
+                audioPlayer.pause(); 
+                stopPlaybackLoop();
+                playPauseBtn.textContent = '▶';
+                updatePlaybackUI();
+            }
+        }
+
+        audioPlayer.addEventListener('play', () => { 
+            playPauseBtn.textContent = '◼'; 
+            startPlaybackLoop();
+        });
+        audioPlayer.addEventListener('pause', () => { 
+            if (!isDragging) {
+                playPauseBtn.textContent = '▶';
+            }
+        });
+        
+        audioPlayer.addEventListener('ended', () => {
+            stopPlaybackLoop();
+            updatePlaybackUI();
+            playPauseBtn.textContent = '▶';
+            document.querySelectorAll('.highlight-row').forEach(row => row.classList.remove('highlight-row'));
+        });
+
+
+        function updateCursorPosition(percent) {
+            const clampedPercent = Math.min(1.0, Math.max(0.0, percent));
+            playbackCursor.style.top = `${clampedPercent * 100}%`;
+        }
+        
+        function highlightCurrentRow(currentTime) {
+            const activeMarkers = markers
+                .filter(m => m.time <= currentTime)
+                .sort((a, b) => b.time - a.time); 
+
+            document.querySelectorAll('.highlight-row').forEach(row => row.classList.remove('highlight-row'));
+
+            if (activeMarkers.length > 0) {
+                const rowToHighlight = document.getElementById(`row-${activeMarkers[0].rowId}`);
+                if (rowToHighlight) {
+                    rowToHighlight.classList.add('highlight-row');
+                    const tableWrapper = document.getElementById('table-scroll-wrapper');
+                    const rowRect = rowToHighlight.getBoundingClientRect();
+                    const wrapperRect = tableWrapper.getBoundingClientRect();
+
+                    if (rowRect.bottom > wrapperRect.bottom || rowRect.top < wrapperRect.top) {
+                         rowToHighlight.scrollIntoView({ behavior: 'auto', block: 'center' });
+                    }
+                }
+            }
+        }
+
+        playbackCursor.addEventListener('mousedown', (e) => {
+            if (totalDuration === 0) return;
+            isDragging = true;
+            stopPlaybackLoop();
+            timelineRect = timelineProgress.getBoundingClientRect(); 
+            audioPlayer.pause(); 
+            playPauseBtn.textContent = '▶';
+            e.preventDefault(); 
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging || totalDuration === 0) return;
+            let newY = e.clientY - timelineRect.top;
+            newY = Math.max(0, Math.min(timelineRect.height, newY));
+            const percent = newY / timelineRect.height;
+            const newTime = percent * totalDuration;
+            
+            audioPlayer.currentTime = newTime; 
+            
+            currentTimeDisplay.textContent = formatTime(newTime);
+            progressBar.style.width = `${percent * 100}%`;
+            updateCursorPosition(percent);
+            highlightCurrentRow(newTime);
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            const activeElement = document.activeElement;
+            const isInputActive = activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'INPUT';
+            
+            // 1. 如果按下的是 Esc 键
+            if (e.key === 'Escape') {
+                if (isInputActive) {
+                    // 如果焦点在输入框/文本区，则让其失去焦点 (退出编辑)
+                    activeElement.blur(); 
+                    e.preventDefault(); // 阻止浏览器可能的默认行为
+                    return;
+                }
+                
+                // 如果更多菜单打开着，按 Esc 关闭它
+                if (moreOptionsMenu.style.display === 'block') {
+                     toggleMoreMenu();
+                     e.preventDefault();
+                     return;
+                }
+            }
+            
+            // 2. 如果用户正在输入框/文本区打字 (非Esc键)
+            if (isInputActive) {
+                // 允许 Delete/Backspace 在文本区域内正常操作
+                if (e.key === 'Delete' || e.key === 'Backspace') {
+                    return; 
+                }
+                // 阻止 / 和 * 触发导航
+                if (e.key === '/' || e.key === '*') {
+                     e.preventDefault();
+                     return;
+                }
+                return; // 忽略其他快捷键
+            }
+            
+            // 3. 全局热键处理
+            if (totalDuration === 0 && e.key !== 'Delete') { return; }
+
+            switch (e.key) {
+                case ' ': 
+                    e.preventDefault(); 
+                    togglePlayback(); 
+                    break;
+                case 'm': 
+                case 'M':
+                    e.preventDefault(); 
+                    const currentTime = audioPlayer.currentTime;
+                    const percent = currentTime / totalDuration;
+                    const isTooClose = markers.some(m => Math.abs(m.time - currentTime) < 0.5); 
+                    if (isTooClose) { console.log('注意：该位置附近已有标记。'); }
+                    addRow(currentTime, percent);
+                    break;
+                case '1': 
+                case 'Numpad1': 
+                    e.preventDefault(); 
+                    seekToStart(); 
+                    break;
+                
+                // --- 快捷键功能 ---
+                case 'Delete': 
+                    e.preventDefault();
+                    const highlightedRow = document.querySelector('.highlight-row');
+                    if (highlightedRow) {
+                        const rowId = highlightedRow.id.replace('row-', '');
+                        deleteRow(parseInt(rowId));
+                    }
+                    break;
+                    
+                case '/': // 下一个标记
+                    e.preventDefault();
+                    if (totalDuration === 0) return;
+                    const nextMarker = markers.find(m => m.time > audioPlayer.currentTime + 0.001); 
+                    
+                    if (nextMarker) {
+                        audioPlayer.currentTime = nextMarker.time;
+                    } else {
+                         audioPlayer.currentTime = totalDuration;
+                    }
+                    updatePlaybackUI(); 
+                    break;
+                    
+                case '*': // 上一个标记
+                    e.preventDefault();
+                    if (totalDuration === 0) return;
+                    
+                    const prevMarkers = markers.filter(m => m.time < audioPlayer.currentTime - 0.001); 
+                    
+                    if (prevMarkers.length > 0) {
+                        const prevMarker = prevMarkers[prevMarkers.length - 1];
+                        audioPlayer.currentTime = prevMarker.time;
+                    } else {
+                        audioPlayer.currentTime = 0;
+                    }
+                    updatePlaybackUI();
+                    break;
+            }
+        });
+
+        window.deleteRow = function(rowId) {
+            const row = document.getElementById(`row-${rowId}`);
+            if (row) {
+                row.remove();
+                const marker = timelineProgress.querySelector(`.timeline-marker[data-row-id="${rowId}"]`);
+                if (marker) { marker.remove(); }
+                // 从 markers 数组中删除
+                markers = markers.filter(m => m.rowId !== rowId); 
+            }
+            // 确保更新分镜数
+            sceneCounter.textContent = tableBody.querySelectorAll('tr').length;
+        }
+
+        window.addRow = function(time = null, percent = null, noMarker = false) {
+            const rowId = nextRowId++;
+            
+            const newRow = tableBody.insertRow();
+            newRow.id = `row-${rowId}`;
+            newRow.setAttribute('draggable', true); 
+
+            const handleCell = newRow.insertCell();
+            handleCell.className = 'handle-cell';
+            handleCell.innerHTML = `<button class="delete-btn" onclick="deleteRow(${rowId})" title="删除此行">🗑️</button>`;
+
+            const imageCell = newRow.insertCell();
+            imageCell.className = 'image-cell';
+            const imageUploadBoxHtml = `
+                <div class="image-upload-box" 
+                     ondragover="handleImageDragOver(event, this)" 
+                     ondragleave="handleImageDragLeave(event, this)" 
+                     ondrop="handleImageDrop(event, ${rowId}, this)">
+                    <input type="file" accept="image/*" onchange="previewImage(this.files[0], ${rowId})">
+                    <span class="upload-icon">+</span>
+                    <div id="image-preview-container-${rowId}" class="image-preview-container">
+                        <img id="image-preview-${rowId}" class="uploaded-img">
+                    </div>
+                </div>
+                <span id="image-file-name-${rowId}" style="display:none;"></span>
+            `;
+            imageCell.innerHTML = imageUploadBoxHtml;
+
+            const textCell = newRow.insertCell();
+            textCell.className = 'text-cell';
+            const timeDisplay = time !== null ? `⏱ ${time.toFixed(2)}s` : '[无标记]';
+            textCell.innerHTML = `
+                <div class="text-cell-wrapper">
+                    <p class="marker-info" id="row-marker-info-${rowId}">${timeDisplay}</p>
+                    <textarea class="text-area" placeholder="输入分镜描述或脚本..." rows="5"></textarea>
+                </div>
+            `;
+            
+            if (time !== null && percent !== null && !noMarker) {
+                createTimelineMarker(rowId, time, percent);
+            }
+            
+            newRow.addEventListener('dragstart', handleDragStart);
+            newRow.addEventListener('dragover', handleDragOver);
+            newRow.addEventListener('dragleave', handleDragLeave);
+            newRow.addEventListener('drop', handleDrop);
+            newRow.addEventListener('dragend', handleDragEnd);
+
+            newRow.scrollIntoView({ behavior: 'auto', block: 'end' });
+            
+            sceneCounter.textContent = tableBody.querySelectorAll('tr').length;
+        }
+        
+        window.previewImage = function(file, rowId) {
+            if (!file) return;
+
+            const previewContainer = document.getElementById(`image-preview-container-${rowId}`);
+            const preview = document.getElementById(`image-preview-${rowId}`);
+            const fileNameSpan = document.getElementById(`image-file-name-${rowId}`);
+            
+            const uploadBox = preview.closest('.image-upload-box');
+
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    preview.src = e.target.result;
+                    previewContainer.style.display = 'flex';
+                    if(uploadBox) { uploadBox.querySelector('.upload-icon').style.display = 'none'; }
+                    
+                    fileNameSpan.textContent = file.name;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                preview.src = '';
+                previewContainer.style.display = 'none';
+                if(uploadBox) { uploadBox.querySelector('.upload-icon').style.display = ''; }
+                fileNameSpan.textContent = '';
+                alert('只能拖放图像文件 (.jpg, .png, etc.)。');
+            }
+        }
+        
+        function createTimelineMarker(rowId, time, percent) {
+            const markerDiv = document.createElement('div');
+            markerDiv.className = 'timeline-marker';
+            markerDiv.style.top = `${percent * 100}%`; 
+            markerDiv.setAttribute('data-row-id', rowId);
+            
+            markers.push({ time: time, rowId: rowId, percent: percent });
+            markers.sort((a, b) => a.time - b.time); 
+
+            timelineProgress.appendChild(markerDiv);
+        }
+
+        function handleDragStart(e) {
+            draggedRow = this;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML); 
+            setTimeout(() => { this.classList.add('dragging'); }, 0);
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault(); 
+            if (this !== draggedRow) { this.classList.add('drag-over'); }
+        }
+        
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+
+            if (draggedRow !== this) {
+                const rect = this.getBoundingClientRect();
+                const offsetY = e.clientY - rect.top;
+                
+                if (offsetY < rect.height / 2) {
+                    tableBody.insertBefore(draggedRow, this);
+                } else {
+                    tableBody.insertBefore(draggedRow, this.nextSibling);
+                }
+                updateMarkersAfterSort();
+            }
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            document.querySelectorAll('tr').forEach(row => row.classList.remove('drag-over'));
+            draggedRow = null;
+        }
+
+        function updateMarkersAfterSort() {
+             const allMarkers = timelineProgress.querySelectorAll('.timeline-marker');
+             allMarkers.forEach(markerDiv => {
+                 const rowId = markerDiv.getAttribute('data-row-id');
+                 if (!document.getElementById(`row-${rowId}`)) {
+                     markerDiv.remove();
+                     markers = markers.filter(m => m.rowId.toString() !== rowId);
+                 }
+             });
+        }
+        
+        window.handleImageDragOver = function(e, element) {
+            e.preventDefault();
+            element.classList.add('drag-target');
+            e.dataTransfer.dropEffect = 'copy';
+        };
+
+        window.handleImageDragLeave = function(e, element) {
+            element.classList.remove('drag-target');
+        };
+
+        window.handleImageDrop = function(e, rowId, element) {
+            e.preventDefault();
+            element.classList.remove('drag-target');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                previewImage(file, rowId);
+                
+                const fileInput = element.querySelector('input[type="file"]');
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(file);
+                    fileInput.files = dataTransfer.files;
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+             resetEditor(true); 
+        });
+        
+    </script>
+</body>
+</html>
